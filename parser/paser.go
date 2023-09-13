@@ -15,6 +15,10 @@ import (
 	"github.com/itchyny/gojq"
 )
 
+var (
+	SCAN_VERSION = 1
+)
+
 type ParserInterface interface {
 	Parse() (ast.Expr, error)
 }
@@ -27,17 +31,16 @@ type Parser struct {
 
 // Multi-buffer parser
 type mbuffer struct {
-	toks  []rune
-	tts   []string
-	n     int
-	isbuf bool
+	toks []rune
+	tts  []string
+	fbu  bool // From buffer
 }
 
 // Buffer parser
 type buffer struct {
-	tok  rune
-	tt   string
-	fbuf bool // From buffer
+	tok rune
+	tt  string
+	fbu bool // From buffer
 }
 
 func NewParser(src io.Reader) ParserInterface {
@@ -48,28 +51,35 @@ func NewParser(src io.Reader) ParserInterface {
 }
 
 func (p *Parser) scan() (rune, string) {
-	return p.scannerScan()
+	if SCAN_VERSION == 1 {
+		return p.scannerScan()
+	}
+	return p.scannerMScanSingle()
 }
 
 func (p *Parser) unscan() {
-	p.scannerUnScan()
+	if SCAN_VERSION == 1 {
+		p.scannerUnScan()
+	} else {
+		p.scannerMUnScan()
+	}
 }
 
 func (p *Parser) scannerScan() (rune, string) {
-	if !p.buf.fbuf {
+	if !p.buf.fbu {
 		p.buf.tok, p.buf.tt = p.s.Scan(), p.s.TokenText()
 	} else {
-		p.buf.fbuf = false
+		p.buf.fbu = false
 	}
 	return p.buf.tok, p.buf.tt
 }
 
 func (p *Parser) scannerUnScan() {
-	p.buf.fbuf = true
+	p.buf.fbu = true
 }
 
 func (p *Parser) scannerMScan() (rune, string) {
-	if p.mbuf.isbuf {
+	if p.mbuf.fbu {
 		if len(p.mbuf.tts) > 0 {
 			t, tt := p.mbuf.toks[0], p.mbuf.tts[0]
 			return t, tt
@@ -93,16 +103,16 @@ func (p *Parser) scannerMCommitAll() {
 }
 
 func (p *Parser) scannerMUnScan() {
-	p.mbuf.isbuf = true
+	p.mbuf.fbu = true
 }
 
-func (p *Parser) scannerScanWithM() (rune, string) {
+func (p *Parser) scannerMScanSingle() (rune, string) {
 	if len(p.mbuf.tts) > 1 {
 		p.scannerMCommit()
 	}
 	t, tt := p.scannerMScan()
-	if p.mbuf.isbuf {
-		p.mbuf.isbuf = false
+	if p.mbuf.fbu {
+		p.mbuf.fbu = false
 	}
 	return t, tt
 }
