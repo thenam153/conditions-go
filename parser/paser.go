@@ -16,11 +16,10 @@ import (
 )
 
 type ParserInterface interface {
-	Parser() (ast.Expr, error)
+	Parse() (ast.Expr, error)
 }
 
 type Parser struct {
-	ParserInterface
 	s    scanner.Scanner
 	mbuf mbuffer
 	buf  buffer
@@ -41,7 +40,7 @@ type buffer struct {
 	fbuf bool // From buffer
 }
 
-func NewParser(src io.Reader) *Parser {
+func NewParser(src io.Reader) ParserInterface {
 	p := &Parser{s: scanner.Scanner{}, buf: buffer{}}
 	p.s.Mode = scanner.ScanStrings | scanner.ScanFloats | scanner.ScanIdents
 	p.s.Init(src)
